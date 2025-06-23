@@ -7,7 +7,7 @@
     <title>nas_calc.html</title>
 </head>
 <body>
-    <h2>Nasdaq 100 Trade Calculator 3 and 7</h2>
+    <h2>Nasdaq 100 Trade Calculator 3.5 and 8</h2>
     <form id="tradeForm">
         <label>Entry Price: <input type="number" id="entryPrice" required></label><br><br>
         <label>ATR: <input type="number" id="atr" required></label><br><br>
@@ -31,8 +31,8 @@
             const accountBalance = parseFloat(document.getElementById('accountBalance').value);
             const tradeDirection = document.getElementById('tradeDirection').value;
 
-            const stopMultiplier = 3.0;
-            const limitMultiplier = 7;
+            const stopMultiplier = 3.5;
+            const limitMultiplier = 8;
             const riskPercent = 0.02;
 
             const stopDistance = atr * stopMultiplier;
