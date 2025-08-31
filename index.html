@@ -7,7 +7,7 @@
     <title>nas_calc.html</title>
 </head>
 <body>
-    <h2>Nas Trade Calculator Partial TP</h2>
+    <h2>Nas100 10:15 to 13:00 Trade Calculator Fixed Trailing Stop</h2>
     <form id="tradeForm">
         <label>Entry Price: <input type="number" id="entryPrice" step="0.01" required></label><br><br>
         <label>ATR: <input type="number" id="atr" step="0.01" required></label><br><br>
@@ -34,7 +34,7 @@
             const tradeDirection = document.getElementById('tradeDirection').value;
 
             const stopMultiplier = 1.5;
-            const limitMultiplier = 1.5;
+            const limitMultiplier = 2.5;
             const partialTPMultiplier = 1.5;
             const riskPercent = 0.01;
 
