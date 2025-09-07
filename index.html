@@ -2,73 +2,252 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>nas_calc.html</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NAS100 CFD Position Size Calculator</title>
+  <style>
+    :root{
+      --bg:#0b0f14;--panel:#0f1520;--muted:#9aa4b2;--text:#e6eaf0;--accent:#7cc4ff;--ok:#6ee7b7;--warn:#fbbf24;--bad:#f87171;
+      --br:14px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      color:var(--text); background: radial-gradient(1200px 800px at 80% -10%, #1e293b 0%, #0b0f14 40%) fixed;
+      padding:24px;
+    }
+    .wrap{max-width:980px; margin:0 auto;}
+    header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}
+    h1{margin:0;font-size:clamp(20px,3.4vw,30px);letter-spacing:.2px}
+    .badge{font-size:12px;color:#0b1220;background:var(--accent);padding:6px 10px;border-radius:999px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+    fieldset{
+      border:1px solid rgba(124,196,255,.18);
+      background:linear-gradient(180deg, rgba(124,196,255,.06), rgba(124,196,255,.03));
+      border-radius:var(--br); padding:14px; margin:0;
+    }
+    legend{padding:0 8px;color:var(--muted);font-size:12px;letter-spacing:.2px}
+    label{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 0;color:var(--muted);font-size:14px}
+    input[type="number"]{
+      width:160px; padding:8px 10px; border-radius:10px; border:1px solid rgba(124,196,255,.25);
+      background:#0b1220; color:var(--text);
+    }
+    .hint{font-size:12px;color:var(--muted);margin-top:6px}
+    .out{
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:14px
+    }
+    .card{
+      padding:14px;border:1px solid rgba(124,196,255,.18);
+      background:linear-gradient(180deg, rgba(124,196,255,.06), rgba(124,196,255,.03));
+      border-radius:var(--br);
+    }
+    .k{font-size:12px;color:var(--muted)}
+    .v{font-size:22px;margin-top:2px}
+    .v.ok{color:var(--ok)} .v.warn{color:var(--warn)} .v.bad{color:var(--bad)}
+    .rr{display:flex;gap:10px;align-items:center}
+    .small{font-size:12px;color:var(--muted)}
+    footer{margin-top:22px;color:var(--muted);font-size:12px}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace}
+    button{
+      border:none;background:var(--accent);color:#001428;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer
+    }
+  </style>
 </head>
 <body>
-    <h2>Nas100 10:15 to 13:00 Trade Calculator Fixed Trailing Stop</h2>
-    <form id="tradeForm">
-        <label>Entry Price: <input type="number" id="entryPrice" step="0.01" required></label><br><br>
-        <label>ATR: <input type="number" id="atr" step="0.01" required></label><br><br>
-        <label>Account Balance: <input type="number" id="accountBalance" step="0.01" required></label><br><br>
-        <label>Leverage: <input type="number" id="leverage" step="1" required></label><br><br>
-        <label>Trade Direction:
-            <select id="tradeDirection">
-                <option value="long">Long</option>
-                <option value="short">Short</option>
-            </select>
-        </label><br><br>
-        <button type="button" onclick="calculateTrade()">Calculate</button>
-    </form>
+  <div class="wrap">
+    <header>
+      <h1>NAS100 CFD — Position Size Calculator</h1>
+      <span class="badge">v1.0</span>
+    </header>
 
-    <h3>Results:</h3>
-    <div id="results"></div>
+    <div class="grid">
+      <fieldset>
+        <legend>Account &amp; Risk</legend>
+        <label>
+          <span>Account Balance (USD)</span>
+          <input id="balance" type="number" step="0.01" value="1000">
+        </label>
+        <label>
+          <span>Risk % of Balance</span>
+          <input id="riskPct" type="number" step="0.1" value="1.0">
+        </label>
+        <div class="hint">Risk $ = Balance × (Risk % / 100). Adjust % to change the $ at risk.</div>
+      </fieldset>
 
-    <script>
-        function calculateTrade() {
-            const entryPrice = parseFloat(document.getElementById('entryPrice').value);
-            const atr = parseFloat(document.getElementById('atr').value);
-            const accountBalance = parseFloat(document.getElementById('accountBalance').value);
-            const leverage = parseFloat(document.getElementById('leverage').value);
-            const tradeDirection = document.getElementById('tradeDirection').value;
+      <fieldset>
+        <legend>Trade Prices</legend>
+        <label>
+          <span>Entry Price</span>
+          <input id="entry" type="number" step="0.1" value="20000.0">
+        </label>
+        <label>
+          <span>Stop-Loss Price</span>
+          <input id="sl" type="number" step="0.1" value="19950.0">
+        </label>
+        <label>
+          <span>Take-Profit Price (optional)</span>
+          <input id="tp" type="number" step="0.1" value="20100.0">
+        </label>
+        <div class="hint">Direction inferred: if SL &lt; Entry → long; if SL &gt; Entry → short.</div>
+      </fieldset>
 
-            const stopMultiplier = 1.5;
-            const limitMultiplier = 2.5;
-            const partialTPMultiplier = 1.5;
-            const riskPercent = 0.01;
+      <fieldset>
+        <legend>Contract Settings</legend>
+        <label>
+          <span>Dollar per Index Point per 1.00 lot</span>
+          <input id="usdPerPoint" type="number" step="0.01" value="1.00">
+        </label>
+        <label>
+          <span>Min Lot Step (broker)</span>
+          <input id="lotStep" type="number" step="0.01" value="0.01">
+        </label>
+        <div class="hint">Brokers differ. Many CFDs are ~<span class="mono">$1/point</span> per 1.00 lot, but confirm your spec.</div>
+      </fieldset>
+    </div>
 
-            const stopDistance = atr * stopMultiplier;
-            const limitDistance = atr * limitMultiplier;
-            const partialTPDistance = atr * partialTPMultiplier;
+    <div class="out">
+      <div class="card">
+        <div class="k">Risk ($)</div>
+        <div id="riskUsd" class="v"></div>
+      </div>
+      <div class="card">
+        <div class="k">Stop Distance (points)</div>
+        <div id="stopPts" class="v"></div>
+      </div>
+      <div class="card">
+        <div class="k">Position Size (lots)</div>
+        <div id="lots" class="v ok"></div>
+      </div>
+      <div class="card">
+        <div class="k">Notional Exposure (approx.)</div>
+        <div id="notional" class="v"></div>
+        <div class="small">= Entry × lots</div>
+      </div>
+      <div class="card">
+        <div class="k">R:R (optional)</div>
+        <div class="v rr"><span id="rr">—</span></div>
+        <div class="small">Uses TP if provided</div>
+      </div>
+    </div>
 
-            let stopPrice, limitPrice, partialTPPrice;
+    <footer>
+      Formula: <span class="mono">lots = (riskUSD) / (|entry − SL| × USD_per_point_per_1.00lot)</span>.
+      Round to your broker’s minimum lot step. Always verify with your broker’s contract specs.
+      <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
+        <button id="share">Copy Settings URL</button>
+        <span id="shareMsg" class="small"></span>
+      </div>
+    </footer>
+  </div>
 
-            if (tradeDirection === 'long') {
-                stopPrice = entryPrice - stopDistance;
-                limitPrice = entryPrice + limitDistance;
-                partialTPPrice = entryPrice + partialTPDistance;
-            } else {
-                stopPrice = entryPrice + stopDistance;
-                limitPrice = entryPrice - limitDistance;
-                partialTPPrice = entryPrice - partialTPDistance;
-            }
+  <script>
+    const els = {
+      balance: document.getElementById('balance'),
+      riskPct: document.getElementById('riskPct'),
+      entry: document.getElementById('entry'),
+      sl: document.getElementById('sl'),
+      tp: document.getElementById('tp'),
+      usdPerPoint: document.getElementById('usdPerPoint'),
+      lotStep: document.getElementById('lotStep'),
+      riskUsd: document.getElementById('riskUsd'),
+      stopPts: document.getElementById('stopPts'),
+      lots: document.getElementById('lots'),
+      notional: document.getElementById('notional'),
+      rr: document.getElementById('rr'),
+      shareBtn: document.getElementById('share'),
+      shareMsg: document.getElementById('shareMsg'),
+    };
 
-            const riskAmount = accountBalance * riskPercent;
-            const contractSize = riskAmount / stopDistance;
-            const notionalValue = contractSize * entryPrice;
-            const marginRequired = notionalValue / leverage;
+    // Helpers
+    function toNum(v, def=0){ const n = parseFloat(v); return isFinite(n) ? n : def; }
+    function roundToStep(value, step){
+      if (step <= 0) return value;
+      return Math.round(value/step)*step;
+    }
+    function fmt(n, dp=2){
+      if (!isFinite(n)) return "—";
+      return n.toLocaleString(undefined,{maximumFractionDigits:dp, minimumFractionDigits:dp});
+    }
+    function encodeStateToQuery(){
+      const params = new URLSearchParams();
+      params.set('balance', els.balance.value);
+      params.set('riskPct', els.riskPct.value);
+      params.set('entry', els.entry.value);
+      params.set('sl', els.sl.value);
+      params.set('tp', els.tp.value);
+      params.set('usdPerPoint', els.usdPerPoint.value);
+      params.set('lotStep', els.lotStep.value);
+      return params.toString();
+    }
+    function applyQuery(){
+      const q = new URLSearchParams(location.search);
+      const keys = ['balance','riskPct','entry','sl','tp','usdPerPoint','lotStep'];
+      keys.forEach(k=>{
+        if (q.has(k)){ els[k].value = q.get(k); }
+      });
+    }
 
-            document.getElementById('results').innerHTML = `
-                <p>Stop Price: <strong>${stopPrice.toFixed(2)}</strong></p>
-                <p>Limit Price: <strong>${limitPrice.toFixed(2)}</strong></p>
-                <p>Partial Take Profit Price: <strong>${partialTPPrice.toFixed(2)}</strong></p>
-                <p>Risk Amount: <strong>${riskAmount.toFixed(2)}</strong></p>
-                <p>Contract Size: <strong>${contractSize.toFixed(2)}</strong></p>
-                <p>Notional Value: <strong>${notionalValue.toFixed(2)}</strong></p>
-                <p>Margin Required (at ${leverage}x leverage): <strong>${marginRequired.toFixed(2)}</strong></p>
-            `;
+    function calc(){
+      const balance = toNum(els.balance.value, 0);
+      const riskPct = toNum(els.riskPct.value, 0);
+      const entry = toNum(els.entry.value, 0);
+      const sl = toNum(els.sl.value, 0);
+      const tp = toNum(els.tp.value, NaN);
+      const usdPerPoint = toNum(els.usdPerPoint.value, 1);
+      const lotStep = toNum(els.lotStep.value, 0.01);
+
+      const riskUsd = balance * (riskPct / 100);
+      const stopPts = Math.abs(entry - sl);
+
+      // Avoid div by zero
+      let lotsRaw = (stopPts > 0 && usdPerPoint > 0) ? (riskUsd / (stopPts * usdPerPoint)) : 0;
+      let lots = roundToStep(lotsRaw, lotStep);
+
+      // Notional approx (index * lots). This is a simplification; some brokers multiply by contract factor.
+      const notional = entry * lots;
+
+      // R:R using TP if present
+      let rrTxt = "—";
+      if (isFinite(tp)){
+        const risk = Math.abs(entry - sl);
+        const reward = Math.abs(tp - entry);
+        if (risk > 0){
+          rrTxt = (reward / risk).toFixed(2) + " : 1";
         }
-    </script>
+      }
+
+      els.riskUsd.textContent = "$ " + fmt(riskUsd, 2);
+      els.stopPts.textContent = fmt(stopPts, 1);
+      els.lots.textContent = fmt(lots, 3);
+      els.notional.textContent = "$ " + fmt(notional, 2);
+      els.rr.textContent = rrTxt;
+    }
+
+    function bind(){
+      ['input','change'].forEach(ev=>{
+        Object.values(els).forEach(el=>{
+          if (el && el.tagName === 'INPUT'){
+            el.addEventListener(ev, calc);
+          }
+        });
+      });
+      els.shareBtn.addEventListener('click', async ()=>{
+        const url = location.origin + location.pathname + "?" + encodeStateToQuery();
+        try{
+          await navigator.clipboard.writeText(url);
+          els.shareMsg.textContent = "Copied URL to clipboard.";
+        }catch(e){
+          els.shareMsg.textContent = "Copy failed. Select and copy: " + url;
+        }
+        setTimeout(()=> els.shareMsg.textContent="", 3000);
+      });
+    }
+
+    // Init
+    applyQuery();
+    bind();
+    calc();
+  </script>
 </body>
 </html>
+
