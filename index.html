@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,7 +11,7 @@
     }
     *{box-sizing:border-box}
     body{
-      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
       color:var(--text); background: radial-gradient(1200px 800px at 80% -10%, #1e293b 0%, #0b0f14 40%) fixed;
       padding:24px;
     }
@@ -47,7 +46,7 @@
     .rr{display:flex;gap:10px;align-items:center}
     .small{font-size:12px;color:var(--muted)}
     footer{margin-top:22px;color:var(--muted);font-size:12px}
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace}
     button{
       border:none;background:var(--accent);color:#001428;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer
     }
@@ -57,7 +56,7 @@
   <div class="wrap">
     <header>
       <h1>NAS100 CFD — Position Size Calculator</h1>
-      <span class="badge">v1.0</span>
+      <span class="badge">v1.1</span>
     </header>
 
     <div class="grid">
@@ -71,7 +70,7 @@
           <span>Risk % of Balance</span>
           <input id="riskPct" type="number" step="0.1" value="1.0">
         </label>
-        <div class="hint">Risk $ = Balance × (Risk % / 100). Adjust % to change the $ at risk.</div>
+        <div class="hint">Risk $ = Balance × (Risk % / 100).</div>
       </fieldset>
 
       <fieldset>
@@ -88,20 +87,22 @@
           <span>Take-Profit Price (optional)</span>
           <input id="tp" type="number" step="0.1" value="20100.0">
         </label>
-        <div class="hint">Direction inferred: if SL &lt; Entry → long; if SL &gt; Entry → short.</div>
       </fieldset>
 
       <fieldset>
         <legend>Contract Settings</legend>
         <label>
-          <span>Dollar per Index Point per 1.00 lot</span>
+          <span>$ per Point (1.00 lot)</span>
           <input id="usdPerPoint" type="number" step="0.01" value="1.00">
         </label>
         <label>
-          <span>Min Lot Step (broker)</span>
+          <span>Min Lot Step</span>
           <input id="lotStep" type="number" step="0.01" value="0.01">
         </label>
-        <div class="hint">Brokers differ. Many CFDs are ~<span class="mono">$1/point</span> per 1.00 lot, but confirm your spec.</div>
+        <label>
+          <span>Leverage</span>
+          <input id="leverage" type="number" step="1" value="20">
+        </label>
       </fieldset>
     </div>
 
@@ -124,19 +125,19 @@
         <div class="small">= Entry × lots</div>
       </div>
       <div class="card">
+        <div class="k">Margin Required</div>
+        <div id="margin" class="v warn"></div>
+        <div class="small">= Notional ÷ Leverage</div>
+      </div>
+      <div class="card">
         <div class="k">R:R (optional)</div>
         <div class="v rr"><span id="rr">—</span></div>
-        <div class="small">Uses TP if provided</div>
       </div>
     </div>
 
     <footer>
-      Formula: <span class="mono">lots = (riskUSD) / (|entry − SL| × USD_per_point_per_1.00lot)</span>.
-      Round to your broker’s minimum lot step. Always verify with your broker’s contract specs.
-      <div style="margin-top:10px;display:flex;gap:10px;align-items:center">
-        <button id="share">Copy Settings URL</button>
-        <span id="shareMsg" class="small"></span>
-      </div>
+      Formula: <span class="mono">lots = (riskUSD) ÷ (|entry − SL| × $/point)</span>.  
+      Margin Required = (Entry × lots) ÷ Leverage.
     </footer>
   </div>
 
@@ -149,43 +150,18 @@
       tp: document.getElementById('tp'),
       usdPerPoint: document.getElementById('usdPerPoint'),
       lotStep: document.getElementById('lotStep'),
+      leverage: document.getElementById('leverage'),
       riskUsd: document.getElementById('riskUsd'),
       stopPts: document.getElementById('stopPts'),
       lots: document.getElementById('lots'),
       notional: document.getElementById('notional'),
+      margin: document.getElementById('margin'),
       rr: document.getElementById('rr'),
-      shareBtn: document.getElementById('share'),
-      shareMsg: document.getElementById('shareMsg'),
     };
 
-    // Helpers
     function toNum(v, def=0){ const n = parseFloat(v); return isFinite(n) ? n : def; }
-    function roundToStep(value, step){
-      if (step <= 0) return value;
-      return Math.round(value/step)*step;
-    }
-    function fmt(n, dp=2){
-      if (!isFinite(n)) return "—";
-      return n.toLocaleString(undefined,{maximumFractionDigits:dp, minimumFractionDigits:dp});
-    }
-    function encodeStateToQuery(){
-      const params = new URLSearchParams();
-      params.set('balance', els.balance.value);
-      params.set('riskPct', els.riskPct.value);
-      params.set('entry', els.entry.value);
-      params.set('sl', els.sl.value);
-      params.set('tp', els.tp.value);
-      params.set('usdPerPoint', els.usdPerPoint.value);
-      params.set('lotStep', els.lotStep.value);
-      return params.toString();
-    }
-    function applyQuery(){
-      const q = new URLSearchParams(location.search);
-      const keys = ['balance','riskPct','entry','sl','tp','usdPerPoint','lotStep'];
-      keys.forEach(k=>{
-        if (q.has(k)){ els[k].value = q.get(k); }
-      });
-    }
+    function roundToStep(value, step){ return step > 0 ? Math.round(value/step)*step : value; }
+    function fmt(n, dp=2){ return isFinite(n) ? n.toLocaleString(undefined,{minimumFractionDigits:dp,maximumFractionDigits:dp}) : "—"; }
 
     function calc(){
       const balance = toNum(els.balance.value, 0);
@@ -195,57 +171,38 @@
       const tp = toNum(els.tp.value, NaN);
       const usdPerPoint = toNum(els.usdPerPoint.value, 1);
       const lotStep = toNum(els.lotStep.value, 0.01);
+      const leverage = toNum(els.leverage.value, 20);
 
       const riskUsd = balance * (riskPct / 100);
       const stopPts = Math.abs(entry - sl);
 
-      // Avoid div by zero
       let lotsRaw = (stopPts > 0 && usdPerPoint > 0) ? (riskUsd / (stopPts * usdPerPoint)) : 0;
       let lots = roundToStep(lotsRaw, lotStep);
 
-      // Notional approx (index * lots). This is a simplification; some brokers multiply by contract factor.
       const notional = entry * lots;
+      const margin = leverage > 0 ? notional / leverage : NaN;
 
-      // R:R using TP if present
       let rrTxt = "—";
       if (isFinite(tp)){
         const risk = Math.abs(entry - sl);
         const reward = Math.abs(tp - entry);
-        if (risk > 0){
-          rrTxt = (reward / risk).toFixed(2) + " : 1";
-        }
+        if (risk > 0){ rrTxt = (reward/risk).toFixed(2) + " : 1"; }
       }
 
-      els.riskUsd.textContent = "$ " + fmt(riskUsd, 2);
-      els.stopPts.textContent = fmt(stopPts, 1);
-      els.lots.textContent = fmt(lots, 3);
-      els.notional.textContent = "$ " + fmt(notional, 2);
+      els.riskUsd.textContent = "$ " + fmt(riskUsd,2);
+      els.stopPts.textContent = fmt(stopPts,1);
+      els.lots.textContent = fmt(lots,3);
+      els.notional.textContent = "$ " + fmt(notional,2);
+      els.margin.textContent = "$ " + fmt(margin,2);
       els.rr.textContent = rrTxt;
     }
 
-    function bind(){
-      ['input','change'].forEach(ev=>{
-        Object.values(els).forEach(el=>{
-          if (el && el.tagName === 'INPUT'){
-            el.addEventListener(ev, calc);
-          }
-        });
+    ["input","change"].forEach(ev=>{
+      Object.values(els).forEach(el=>{
+        if (el && el.tagName==="INPUT"){ el.addEventListener(ev,calc); }
       });
-      els.shareBtn.addEventListener('click', async ()=>{
-        const url = location.origin + location.pathname + "?" + encodeStateToQuery();
-        try{
-          await navigator.clipboard.writeText(url);
-          els.shareMsg.textContent = "Copied URL to clipboard.";
-        }catch(e){
-          els.shareMsg.textContent = "Copy failed. Select and copy: " + url;
-        }
-        setTimeout(()=> els.shareMsg.textContent="", 3000);
-      });
-    }
+    });
 
-    // Init
-    applyQuery();
-    bind();
     calc();
   </script>
 </body>
